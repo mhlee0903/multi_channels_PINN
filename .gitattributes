@@ -1,2 +1,4 @@
+
+dta/*.csv filter=lfs diff=lfs merge=lfs -text
 data/*.csv filter=lfs diff=lfs merge=lfs -text
 data/transfer_data/*.csv filter=lfs diff=lfs merge=lfs -text

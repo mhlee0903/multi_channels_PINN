@@ -1,5 +1,2 @@
-data/* filter=lfs diff=lfs merge=lfs -text
-./multi_channels_PINN/* filter=lfs diff=lfs merge=lfs -text
-../multi_channel_PINN/* filter=lfs diff=lfs merge=lfs -text
 data/*.csv filter=lfs diff=lfs merge=lfs -text
 data/transfer_data/*.csv filter=lfs diff=lfs merge=lfs -text

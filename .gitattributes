@@ -1,7 +1,3 @@
 
-dta/*.csv filter=lfs diff=lfs merge=lfs -text
 data/*.csv filter=lfs diff=lfs merge=lfs -text
 data/transfer_data/*.csv filter=lfs diff=lfs merge=lfs -text
-data/transfer_data/ch23Nhype_table_molregno-mol2vec_newRdkit_notDup.csv
- filter=lfs diff=lfs merge=lfs -text
-data/transfer_data/ch23Nhype_table_smile[100]_re.csv filter=lfs diff=lfs merge=lfs -text

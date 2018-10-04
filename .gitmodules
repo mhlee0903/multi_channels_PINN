@@ -1,0 +1,3 @@
+[submodule "data"]
+	path = data
+	url = https://github.com/mhlee0903/multi_channels_PINN.git

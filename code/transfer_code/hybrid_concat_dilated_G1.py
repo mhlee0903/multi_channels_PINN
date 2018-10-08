@@ -299,10 +299,10 @@ MODEL_dic = {'4-1':m_.pcm4_1, '3-1':m_.pcm3_1, '2-1':m_.pcm2_1}
 
 # 1.1 Hype Pair
 if args.TAXONOMY=='rat_high':
-    trans_pair_tr  = pd.read_csv('../../data/transfer_data/trasfer[rat_mus]_conf[9]_black[C].csv', index_col=0)
+    trans_pair_tr  = pd.read_csv('../../data/transfer_data/transfer[rat_mus]_conf[9]_black[C].csv', index_col=0)
 
 elif args.TAXONOMY=='rat_all':
-    trans_pair_tr  = pd.read_csv('../../data/transfer_data/trasfer[rat_mus]_conf[9low]_black[C].csv', index_col=0)
+    trans_pair_tr  = pd.read_csv('../../data/transfer_data/transfer[rat_mus]_conf[9low]_black[C].csv', index_col=0)
 else:
     print("There is NO INPUT!!!")
 
@@ -327,8 +327,8 @@ table_mol2vec = scaled_df( scaler= scaler_mol2vec, df= table_mol2vec)
 table_mol2ecfp = scaled_df( scaler= scaler_mol2ecfp, df= table_mol2ecfp)
 table_prot0 = scaled_df( scaler=scaler_prot, df= table_prot0)
 
-table_aa    = pd.read_csv('../../data/transfer_data/trasfer_table_prot_seq[700].csv', index_col=0)
-table_smile = pd.read_csv('../../data/transfer_data/trasfer_table_smile[100].csv', index_col=0)
+table_aa    = pd.read_csv('../../data/transfer_data/transfer_table_prot_seq[700].csv', index_col=0)
+table_smile = pd.read_csv('../../data/transfer_data/transfer_table_smile[100].csv', index_col=0)
 
 
 task_val_X_in, task_val_y_oneHot = data_valid(

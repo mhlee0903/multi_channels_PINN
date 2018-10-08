@@ -1,0 +1,2 @@
+transfer_table_ecfp.csv filter=lfs diff=lfs merge=lfs -text
+transfer_table_mol2vec.csv filter=lfs diff=lfs merge=lfs -text

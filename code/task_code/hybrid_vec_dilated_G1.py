@@ -244,8 +244,8 @@ scaler_prot     = StandardScaler().fit(table_prot0)
 table_mol2vec   = scaled_df( scaler= scaler_mol2vec, df= table_mol2vec)
 table_prot0     = scaled_df( scaler=scaler_prot, df= table_prot0)
 
-table_aa    = pd.read_csv('../../data/transfer_data/trasfer_table_prot_seq[700].csv', index_col=0)
-table_smile = pd.read_csv('../../data/transfer_data/trasfer_table_smile[100].csv', index_col=0)
+table_aa    = pd.read_csv('../../data/transfer_data/transfer_table_prot_seq[700].csv', index_col=0)
+table_smile = pd.read_csv('../../data/transfer_data/transfer_table_smile[100].csv', index_col=0)
 
 
 task_val_X_in, task_val_y_oneHot = data_valid(

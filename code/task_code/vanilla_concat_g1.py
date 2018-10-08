@@ -261,10 +261,10 @@ MODEL_dic = {'4-1':m_.pcm4_1, '3-1':m_.pcm3_1, '2-1':m_.pcm2_1}
 
 # 1.1 Hype Pair
 if args.TAXONOMY=='rat_high':
-    trans_pair_tr  = pd.read_csv('../../data/transfer_data/trasfer[rat_mus]_conf[9]_black[C].csv', index_col=0)
+    trans_pair_tr  = pd.read_csv('../../data/transfer_data/transfer[rat_mus]_conf[9]_black[C].csv', index_col=0)
 
 elif args.TAXONOMY=='rat_all':
-    trans_pair_tr  = pd.read_csv('../../data/transfer_data/trasfer[rat_mus]_conf[9low]_black[C].csv', index_col=0)
+    trans_pair_tr  = pd.read_csv('../../data/transfer_data/transfer[rat_mus]_conf[9low]_black[C].csv', index_col=0)
 else:
     print("There is NO INPUT!!!")
 
@@ -276,7 +276,7 @@ task_pair_train = pd.read_csv(hype_fname_trans, index_col=0, header=0)
 
 # 2.2 Get Hype data Table
 table_mol2vec  = pd.read_csv('../../data/transfer_data/transfer_table_mol2vec.csv', index_col=0)
-table_mol2ecfp = pd.read_csv('../../data/transfer_data/trasfer_table_ecfp.csv', index_col=0)
+table_mol2ecfp = pd.read_csv('../../data/transfer_data/transfer_table_ecfp.csv', index_col=0)
 table_prot0    = pd.read_csv('../../data/transfer_data/transfer_table_protVec.csv', index_col=0)
 
 scaler_mol2vec = StandardScaler().fit(table_mol2vec)

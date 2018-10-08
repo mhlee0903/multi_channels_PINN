@@ -233,7 +233,7 @@ task_fname_tr ='../../data/task_data/task_pair_train.csv'
 task_pair_train = pd.read_csv(hype_fname_trans, index_col=0, header=0)
 
 # 2.2 Get Hype data Table
-table_mol2ecfp = pd.read_csv('../../data/transfer_data/trasfer_table_ecfp.csv',     index_col=0)
+table_mol2ecfp = pd.read_csv('../../data/transfer_data/transfer_table_ecfp.csv',     index_col=0)
 table_prot0    = pd.read_csv('../../data/transfer_data/transfer_table_protVec.csv', index_col=0)
 
 scaler_mol2ecfp = StandardScaler().fit(table_mol2ecfp)
@@ -244,8 +244,8 @@ scaler_prot     = StandardScaler().fit(table_prot0)
 table_mol2ecfp  = scaled_df( scaler= scaler_mol2ecfp, df= table_mol2ecfp)
 table_prot0     = scaled_df( scaler=scaler_prot, df= table_prot0)
 
-table_aa    = pd.read_csv('../../data/transfer_data/trasfer_table_prot_seq[700].csv', index_col=0)
-table_smile = pd.read_csv('../../data/transfer_data/trasfer_table_smile[100].csv', index_col=0)
+table_aa    = pd.read_csv('../../data/transfer_data/transfer_table_prot_seq[700].csv', index_col=0)
+table_smile = pd.read_csv('../../data/transfer_data/transfer_table_smile[100].csv', index_col=0)
 
 
 task_val_X_in, task_val_y_oneHot = data_valid(

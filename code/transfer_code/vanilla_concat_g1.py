@@ -316,7 +316,7 @@ task_pair_train = pd.read_csv(hype_fname_trans, index_col=0, header=0)
 
 # 2.2 Get Hype data Table
 table_mol2vec  = pd.read_csv('../../data/transfer_data/transfer_table_mol2vec.csv', index_col=0)
-table_mol2ecfp = pd.read_csv('../../data/transfer_data/trasfer_table_ecfp.csv', index_col=0)
+table_mol2ecfp = pd.read_csv('../../data/transfer_data/transfer_table_ecfp.csv', index_col=0)
 table_prot0    = pd.read_csv('../../data/transfer_data/transfer_table_protVec.csv', index_col=0)
 
 scaler_mol2vec = StandardScaler().fit(table_mol2vec)

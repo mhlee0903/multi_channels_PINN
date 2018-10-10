@@ -272,7 +272,7 @@ class hype_val_call(Callback):
         self.full_learning=full_learning
         self.n_addL=n_addL
 
-    def on_epoch_begin(self, epoch, logs=None, verbose=False):
+    # def on_epoch_begin(self, epoch, logs=None, verbose=False):
         # if verbose is True:        
         #     str_model_info = para_info+'\thype_val_on_epoch_begin@{}\tbased on trainE[{}/{:3d}]\t'.format(self.full_learning+'Hype',self.epoch_train, args.TRAIN_epoch)
         #     str_trainable_w= 'trainable weights:[{}]\t'.format(len(self.model_tr.trainable_weights))+'+'*len(self.model_tr.trainable_weights)

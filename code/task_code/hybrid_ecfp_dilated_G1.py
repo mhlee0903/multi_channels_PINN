@@ -228,9 +228,9 @@ MODEL_dic = {'4-1':m_.pcm4_1, '3-1':m_.pcm3_1, '2-1':m_.pcm2_1}
 
 # 2.1 Get Hype pair data
 task_fname_val ='../../data/task_data/task_pair_test.csv'
-task_pair_val = pd.read_csv(hype_fname_val, index_col=0, header=0)
+task_pair_val = pd.read_csv(task_fname_val, index_col=0, header=0)
 task_fname_tr ='../../data/task_data/task_pair_train.csv'
-task_pair_train = pd.read_csv(hype_fname_trans, index_col=0, header=0)
+task_pair_train = pd.read_csv(task_fname_tr, index_col=0, header=0)
 
 # 2.2 Get Hype data Table
 table_mol2ecfp = pd.read_csv('../../data/transfer_data/transfer_table_ecfp.csv',     index_col=0)

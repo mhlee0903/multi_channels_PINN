@@ -239,9 +239,9 @@ def set_path( base_path, epoch_tr=None, addL=None, task=None):
 
 # 2.1 Get Hype pair data
 task_fname_val ='../../data/task_data/task_pair_test.csv'
-task_pair_val = pd.read_csv(hype_fname_val, index_col=0, header=0)
+task_pair_val = pd.read_csv(task_fname_val, index_col=0, header=0)
 task_fname_tr ='../../data/task_data/task_pair_train.csv'
-task_pair_train = pd.read_csv(hype_fname_trans, index_col=0, header=0)
+task_pair_train = pd.read_csv(task_fname_tr, index_col=0, header=0)
 
 table_aa    = pd.read_csv('../../data/transfer_data/transfer_table_prot_seq[700].csv', index_col=0)
 table_smile = pd.read_csv('../../data/transfer_data/transfer_table_smile[100].csv', index_col=0)

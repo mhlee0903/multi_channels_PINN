@@ -24,6 +24,7 @@ from keras.models import load_model
 import os
 import datetime
 import models_rnn as m_
+import argparse
 
 # ## Change Keras Backend as TF
 def set_keras_backend(backend):
@@ -45,16 +46,22 @@ print( 'Backend is changed: '+ K.backend())
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='raw data model based on CNN')
+    parser = argparse.ArgumentParser(description='raw data model based on LSTM')
     parser.add_argument('--n_gpu', type=int, default=4)
     parser.add_argument('--GPU', type=str, default='0')
 
-    parser.add_argument('--TRAIN_batch', type=int, default=256)
+    parser.add_argument('--TRAIN_batch', type=int, default=1024)
     parser.add_argument('--TRAIN_epoch', type=int, default=201)
     parser.add_argument('--TRAIN_lr', type=float, default=0.0005)
+
+    parser.add_argument('--TRANS_opt', type=str, default='')
     
     parser.add_argument('--embed_dim', type=int, default=16)
     parser.add_argument('--patience', type=int, default=100)
+
+    parser.add_argument('--is_Bidirect', type=bool, default=True)
+    parser.add_argument('--n_unit', type=int, default=128)
+    parser.add_argument('--edim', type=int, default=32)
 
     parser.add_argument('--RE_model', type=str, default='')
     parser.add_argument('--RE_epoch', type=int, default=0)
@@ -88,7 +95,7 @@ RE_epoch=int(RE_epoch)
 
 def set_callback(TRANS_opt):
     callback_list = []
-    callback_list.append(hype_val_call(model=model, path_w=None, n_addL=0, path_csv=dir_ret, batch_test = 1024))
+    callback_list.append(task_val_call(model=model, path_w=None, n_addL=0, path_csv=dir_ret, batch_test = 1024))
 
     return callback_list
 
@@ -101,10 +108,10 @@ def history_csv(history, dir_csv):
     pd.DataFrame(np.array(ret_list).T, columns=key_list).to_csv(dir_csv)
 
 
-def data_valid( pair_dataset, table_seq, table_smile):
+def data_valid( pair_dataset, table_aa, table_smile):
     # get protein 
     temp_prot=pair_dataset['protein'].values  
-    X_prot = table_seq.loc[temp_prot].values
+    X_prot = table_aa.loc[temp_prot].values
 
     # get compound
     temp_com = pair_dataset['mol_id'].values  
@@ -168,7 +175,7 @@ def write_result(y_raw, y_probas, cvscores ,path ,DB, taskName='All', epoch_trai
     cv_df.to_csv(path+'{DB}.csv'.format(DB=DB))
 
 
-def train_generator(batch_size, pair_dataset, table_seq, table_smile):
+def train_generator(batch_size, pair_dataset, table_aa, table_smile):
     data_len=len(pair_dataset)
     total_idx = np.arange(data_len)
     np.random.shuffle(total_idx)
@@ -183,7 +190,7 @@ def train_generator(batch_size, pair_dataset, table_seq, table_smile):
 
             # get protein 
             temp_prot=pair_dataset['protein'].values[idx_batch]
-            X_prot = table_seq.loc[temp_prot].values
+            X_prot = table_aa.loc[temp_prot].values
 
             # get compound
             temp_com = pair_dataset['mol_id'].values[idx_batch]
@@ -236,8 +243,6 @@ def set_path( base_path, epoch_tr=None, addL=None, task=None):
     return path
 
 
-
-# 2.1 Get Hype pair data
 task_fname_val ='../../data/task_data/task_pair_test.csv'
 task_pair_val = pd.read_csv(task_fname_val, index_col=0, header=0)
 task_fname_tr ='../../data/task_data/task_pair_train.csv'
@@ -248,14 +253,14 @@ table_smile = pd.read_csv('../../data/transfer_data/transfer_table_smile[100].cs
 
 
 task_val_X_in, task_val_y_oneHot = data_valid(
-                                       pair_dataset=task_pair,
+                                       pair_dataset=task_pair_val,
                                        table_aa=    table_aa,
                                        table_smile= table_smile )
 
-class hype_val_call(Callback):
+class task_val_call(Callback):
     def __init__(self, model, path_csv,  n_addL, epoch_train=None, path_w= None, full_learning='', batch_test= 1024):        
         # set the CSV list
-        self.CSV_hype_te =[]
+        self.CSV_task_te =[]
         
         # We set the model (non multi gpu) under an other name
         self.model_tr = model
@@ -281,29 +286,25 @@ class hype_val_call(Callback):
 
     # def on_epoch_begin(self, epoch, logs=None, verbose=False):
         # if verbose is True:        
-        #     str_model_info = para_info+'\thype_val_on_epoch_begin@{}\tbased on trainE[{}/{:3d}]\t'.format(self.full_learning+'Hype',self.epoch_train, args.TRAIN_epoch)
+        #     str_model_info = para_info+'\ttask_val_on_epoch_begin@{}\tbased on trainE[{}/{:3d}]\t'.format(self.full_learning+'task',self.epoch_train, args.TRAIN_epoch)
         #     str_trainable_w= 'trainable weights:[{}]\t'.format(len(self.model_tr.trainable_weights))+'+'*len(self.model_tr.trainable_weights)
         #     print str_model_info, str_trainable_w
 
     def on_epoch_end(self, epoch, logs=None):
-        # 1.4. Evaluate hype_te
+        # 1.4. Evaluate task_te
         eval_N_csv(y_oneHot= task_val_y_oneHot, X_in= task_val_X_in, model=self.model, path_csv=self.path_csv.format(epoch=epoch),
                    epoch_train=self.epoch_train, epoch_transfer=epoch, batch_size=self.batch, 
-                   csv_list=self.CSV_hype_te, DB='Hype', taskName='hype_te' )
+                   csv_list=self.CSV_task_te, DB='task', taskName='task_te' )
         
         # 2. Save Weights
         if self.path is not None :
             self.model_tr.save(self.path_save.format(epoch=epoch), overwrite=True)
 
-edim = 32
-n_units = 128
-Bidirect_list = [True, False]
-
 
 ############################
 steps_task = int(len(task_pair_train)//(args.TRAIN_batch))+1
 nb_patience = 100
-patience_hype=int(nb_patience/2)
+patience_task=int(nb_patience/2)
 #############################
 
 ########### Model Info setting ##############
@@ -325,7 +326,7 @@ dir_ret=set_path(dir_ret)
 path_train = dir_ret+'train_model_history.csv'
 
 ########### Model Build! ##############
-model= m_.pcm4_1(dropout_value=0.4, is_Bidirect=is_Bidirect, n_units=n_unit, embed_dim=edim)
+model= m_.pcm4_1(dropout_value=0.4, is_Bidirect=args.is_Bidirect, n_units=args.n_unit, embed_dim=args.edim)
 ######################################
 if RE_TRAIN_model is not '':
     re_path = dir_model+args.RE_model
@@ -334,16 +335,16 @@ if RE_TRAIN_model is not '':
 
 # with tf.device(GPU_device):
 parallel_model = multi_gpu_model(model, gpus=n_gpu)
-sgd = Adam( lr=0.0005, decay=1e-6)
+sgd = Adam( lr=args.TRAIN_lr, decay=1e-6)
 parallel_model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy', _mcc])
 
 # Setting the callback functions
 ckpt_path = dir_model
-callback_list = set_callback(TRANS_opt)
+callback_list = set_callback(args.TRANS_opt)
 
 history = parallel_model.fit_generator(
                              generator=train_generator(
-                                            batch_size= self.batch_size,
+                                            batch_size= args.TRAIN_batch,
                                             pair_dataset=task_pair_train,
                                             table_aa = table_aa,
                                             table_smile = table_smile)  ,

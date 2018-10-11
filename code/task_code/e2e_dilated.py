@@ -31,9 +31,11 @@ if __name__ == '__main__':
     parser.add_argument('--n_gpu', type=int, default=4)
     parser.add_argument('--GPU', type=str, default='0')
 
-    parser.add_argument('--TRAIN_batch', type=int, default=256)
+    parser.add_argument('--TRAIN_batch', type=int, default=1024)
     parser.add_argument('--TRAIN_epoch', type=int, default=201)
     parser.add_argument('--TRAIN_lr', type=float, default=0.0005)
+
+    parser.add_argument('--TRANS_opt', type=str, default='')
     
     parser.add_argument('--embed_dim', type=int, default=16)
     parser.add_argument('--nb_filters', type=int, default=64)
@@ -51,7 +53,7 @@ GPU_device = '/gpu:'+args.GPU
 
 def set_callback(TRANS_opt):
     callback_list = []
-    callback_list.append(hype_val_call(model=model, path_w=ckpt_path, n_addL=0, path_csv=dir_ret, batch_test = 1024))
+    callback_list.append(task_val_call(model=model, path_w=ckpt_path, n_addL=0, path_csv=dir_ret, batch_test = 1024))
     
     return callback_list
 
@@ -220,7 +222,7 @@ verbose = 1
 MODEL_dic = {'3-1':m_.pcm3_1,'4-1':m_.pcm4_1, '5-1':m_.pcm5_1,'6-1':m_.pcm6_1}
 
 
-# 2.1 Get Hype pair data
+# 2.1 Get task pair data
 task_fname_val ='../../data/task_data/task_pair_test.csv'
 task_pair_val = pd.read_csv(task_fname_val, index_col=0, header=0)
 task_fname_tr ='../../data/task_data/task_pair_train.csv'
@@ -229,16 +231,15 @@ task_pair_train = pd.read_csv(task_fname_tr, index_col=0, header=0)
 table_aa    = pd.read_csv('../../data/transfer_data/transfer_table_prot_seq[700].csv', index_col=0)
 table_smile = pd.read_csv('../../data/transfer_data/transfer_table_smile[100].csv', index_col=0)
 
-
 task_val_X_in, task_val_y_oneHot = data_valid(
                                        pair_dataset=task_pair_val,
                                        table_aa=    table_aa,
                                        table_smile= table_smile )
 
-class hype_val_call(Callback):
+class task_val_call(Callback):
     def __init__(self, model, path_csv,  n_addL, epoch_train=None, path_w= None, full_learning='', batch_test= 1024):        
         # set the CSV list
-        self.CSV_hype_te =[]
+        self.CSV_task_te =[]
         
         # We set the model (non multi gpu) under an other name
         self.model_tr = model
@@ -264,15 +265,15 @@ class hype_val_call(Callback):
 
     # def on_epoch_begin(self, epoch, logs=None, verbose=False):
         # if verbose is True:        
-        #     str_model_info = para_info+'\thype_val_on_epoch_begin@{}\tbased on trainE[{}/{:3d}]\t'.format(self.full_learning+'Hype',self.epoch_train, args.TRAIN_epoch)
+        #     str_model_info = para_info+'\ttask_val_on_epoch_begin@{}\tbased on trainE[{}/{:3d}]\t'.format(self.full_learning+'task',self.epoch_train, args.TRAIN_epoch)
         #     str_trainable_w= 'trainable weights:[{}]\t'.format(len(self.model_tr.trainable_weights))+'+'*len(self.model_tr.trainable_weights)
         #     print str_model_info, str_trainable_w
 
     def on_epoch_end(self, epoch, logs=None):
-        # 1.4. Evaluate hype_te
+        # 1.4. Evaluate task_te
         eval_N_csv(y_oneHot= task_val_y_oneHot, X_in= task_val_X_in, model=self.model, path_csv=self.path_csv.format(epoch=epoch),
                    epoch_train=self.epoch_train, epoch_transfer=epoch, batch_size=self.batch, 
-                   csv_list=self.CSV_hype_te, DB='Hype', taskName='hype_te' )
+                   csv_list=self.CSV_task_te, DB='Task', taskName='task_te' )
         
         # 2. Save Weights
         if self.path is not None :
@@ -281,7 +282,7 @@ class hype_val_call(Callback):
 ############################
 steps_task = int(len(task_pair_train)//(args.TRAIN_batch))+1
 nb_patience = 100
-patience_hype=int(nb_patience/2)
+patience_task=int(nb_patience/2)
 #############################
 
 ########### Model Info setting ##############
@@ -305,7 +306,7 @@ with tf.device('/cpu:0'):
                                      embed_dim=args.embed_dim,
                                      kernel_size=args.nb_kernels)
 
-if RE_TRAIN_model is not '':
+if args.RE_model is not '':
     re_path = dir_model+args.RE_model
     model = load_model(re_path)
     print('re-load the model!\t'+args.RE_model)

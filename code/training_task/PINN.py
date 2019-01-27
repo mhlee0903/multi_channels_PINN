@@ -80,7 +80,28 @@ def eval_N_csv(y_oneHot, DB, csv_list, model, epoch_transfer, epoch_train, batch
     y_oneHot = y_oneHot
     y_test_raw = categorical_probas_to_classes(y_oneHot)
     y_probas = model.predict(X_in, batch_size=batch_size, verbose=0)  
+    write_result( y_test_raw, y_probas, 
+                 cvscores= csv_list, taskName=taskName, path = path_csv,
+                 epoch_train=epoch_train, epoch_transfer=epoch_transfer, DB=DB, time_tr=time_tr)
 
+def write_result(y_raw, y_probas, cvscores ,path ,DB, taskName='All', epoch_train=None, epoch_transfer=None, time_tr=0):
+    y_pred = categorical_probas_to_classes(y_probas)
+    y_target=y_raw[:len(y_pred)]
+
+    roc_auc = roc_auc_score(y_target, y_probas[:,1])
+    pre, rec, thresholds = precision_recall_curve(y_target, y_probas[:,1])
+    prc = auc(rec, pre)
+
+    acc, precision, npv, sensitivity, specificity, mcc, f1, tp, fp, tn, fn= calculate_performace(len(y_pred), y_target, y_pred)
+    cvscores.append([acc, precision,npv, sensitivity, specificity, mcc,roc_auc, prc, 
+                    tp, fp, tn, fn, 
+                    DB,taskName, epoch_train, epoch_transfer, time_tr, model.count_params()] )
+    
+    cv_df = pd.DataFrame(cvscores, columns=['acc', 'precision','npv', 'sensitivity', 'specificity', 'mcc','roc_auc', 'prc',
+                                            'true pos','false pos','true neg','false neg', 
+                                            'DB','taskName','epoch_train', 'epoch_transfer', 'time_tr' ,'n_para'])
+
+    cv_df.to_csv(path+'{DB}.csv'.format(DB=DB))    
 
 def _mcc(y_true, y_pred):
     y_pred_pos = K.round(K.clip(y_pred, 0, 1))

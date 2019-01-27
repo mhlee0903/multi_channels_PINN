@@ -33,6 +33,14 @@ if __name__ == '__main__':
     parser.add_argument('--TRAIN_epoch', type=int, default=500)
     parser.add_argument('--TRAIN_lr', type=float, default=0.0005)
 
+    parser.add_argument('--isTest', type=bool, default=False)
+    parser.add_argument('--TRANS_batch', type=int, default=1024)
+    parser.add_argument('--TRANS_epoch', type=int, default=201)
+    parser.add_argument('--TRANS_lr', type=float, default=0.0005)
+    parser.add_argument('--n_detail', type=int, default=150)
+    parser.add_argument('--tox_patience', type=int, default=40)
+    parser.add_argument('--sample_w', type=bool, default=True)
+
     parser.add_argument('--PROT_type', type=str, default='H')
     parser.add_argument('--CMPD_type', type=str, default='H')
     parser.add_argument('--SL_length', type=int, default=2)
@@ -56,14 +64,33 @@ if __name__ == '__main__':
     parser.add_argument('--verbose', type=int, default=1)
 
     parser.add_argument('--RE_epoch', type=int, default=0)
+    parser.add_argument('--Tran_start_epoch', type=int, default=0)
+
     args = parser.parse_args()
 
 GPU_device = '/gpu:'+args.GPU
+csv_save_term = args.TRANS_epoch //2
 
 def set_callback():
     callback_list = []
     callback_list.append(task_val_call(model=model, path_w=ckpt_path, n_addL=0, path_csv=dir_ret, batch_test = 1024))
+    callback_list.append(transfer_(model=model, path_w=None, path_csv=dir_ret, task='tox', full_learning='FULL',
+                                     n_addL=0, lr=args.TRANS_lr, n_epoch=args.TRANS_epoch, batch_size=args.TRANS_batch ,
+                                     comment='_1'
+                                  ))
+    callback_list.append(transfer_(model=model, path_w=None, path_csv=dir_ret, task='tox', full_learning='HALF',
+                                     n_addL=0, lr=args.TRANS_lr, n_epoch=args.TRANS_epoch, batch_size=args.TRANS_batch,
+                                     comment='_1'
+                                  ))
 
+    callback_list.append(transfer_(model=model, path_w=None, path_csv=dir_ret, task='tox', full_learning='FULL',
+                                     n_addL=0, lr=args.TRANS_lr, n_epoch=args.TRANS_epoch, batch_size=args.TRANS_batch ,
+                                     comment='_2'
+                                  ))
+    callback_list.append(transfer_(model=model, path_w=None, path_csv=dir_ret, task='tox', full_learning='HALF',
+                                     n_addL=0, lr=args.TRANS_lr, n_epoch=args.TRANS_epoch, batch_size=args.TRANS_batch,
+                                     comment='_2'
+                                  ))
     return callback_list
 
 def history_csv(history, dir_csv):
@@ -76,19 +103,12 @@ def history_csv(history, dir_csv):
 
 
 
-def eval_N_csv(y_oneHot, DB, csv_list, model, epoch_transfer, epoch_train, batch_size, X_in, path_csv, taskName=None, time_tr=None):
+def eval_N_csv(y_oneHot, DB, csv_list, model, epoch_transfer, epoch_train, batch_size, X_in, path_csv, taskName=None, is_force=False):
     y_oneHot = y_oneHot
     y_test_raw = categorical_probas_to_classes(y_oneHot)
 
     y_probas = model.predict(X_in, batch_size=batch_size, verbose=0)
 
-    write_result( y_test_raw, y_probas, 
-                 cvscores= csv_list, taskName=taskName, path = path_csv,
-                 epoch_train=epoch_train, epoch_transfer=epoch_transfer, DB=DB, time_tr=time_tr)
-
-    del y_probas
-    del y_test_raw
-    del X_in    
 
 
 def _mcc(y_true, y_pred):
@@ -109,25 +129,6 @@ def _mcc(y_true, y_pred):
 
     return numerator / (denominator + K.epsilon())
 
-
-def write_result(y_raw, y_probas, cvscores ,path ,DB, taskName='All', epoch_train=None, epoch_transfer=None, time_tr=0):
-    y_pred = categorical_probas_to_classes(y_probas)
-    y_target=y_raw[:len(y_pred)]
-
-    roc_auc = roc_auc_score(y_target, y_probas[:,1])
-    pre, rec, thresholds = precision_recall_curve(y_target, y_probas[:,1])
-    prc = auc(rec, pre)
-
-    acc, precision, npv, sensitivity, specificity, mcc, f1, tp, fp, tn, fn= calculate_performace(len(y_pred), y_target, y_pred)
-    cvscores.append([acc, precision,npv, sensitivity, specificity, mcc,roc_auc, prc, 
-                    tp, fp, tn, fn, 
-                    DB,taskName, epoch_train, epoch_transfer, time_tr, model.count_params()] )
-    
-    cv_df = pd.DataFrame(cvscores, columns=['acc', 'precision','npv', 'sensitivity', 'specificity', 'mcc','roc_auc', 'prc',
-                                            'true pos','false pos','true neg','false neg', 
-                                            'DB','taskName','epoch_train', 'epoch_transfer', 'time_tr' ,'n_para'])
-
-    cv_df.to_csv(path+'{DB}.csv'.format(DB=DB))
 
 def calculate_performace(test_num,  y_true, y_pred):
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
@@ -162,9 +163,7 @@ def scaled_df(scaler, df):
 def set_path( base_path, epoch_tr=None, addL=None, task=None):
     path = base_path 
     if addL is not None:
-        path = base_path+"/Trans_{task}_on_train_epoch{epoch_tr}_addL{addL}/".format(task=task, 
-        																			epoch_tr=epoch_tr,
-        																			addL=addL)
+        path = base_path+"/Trans_{task}_on_train_epoch{epoch_tr}_addL{addL}/".format(task=task, epoch_tr=epoch_tr ,addL=addL)
     if not os.path.exists(path):
         os.makedirs(path)
     return path
@@ -177,9 +176,11 @@ def set_keras_backend(backend):
         reload(K)
         assert K.backend() == backend
 
+
+
 def data_valid(pair_dataset, 
 				table_aa=None, table_prot0=None, 
-				table_smile=None, table_mol2vec=None, table_mol2ecfp=None):
+				table_smile=None, table_mol2vec=None, table_mol2ecfp=None, is_w=False):
     x_list = []
     cmpd_list=[]
 
@@ -213,7 +214,13 @@ def data_valid(pair_dataset,
 
     X_in= x_list
     y_oneHot = np_utils.to_categorical(pair_dataset['label'].values)
-    return [X_in, y_oneHot]
+
+    if is_w:
+        w = pair_dataset['w']
+    else:
+        w = None
+    return [X_in, y_oneHot, w]
+
 
 def train_generator(batch_size, pair_dataset, table_aa=None, table_prot0=None, 
                     table_smile=None, table_mol2vec=None, table_mol2ecfp=None ):
@@ -278,6 +285,40 @@ def get_mol_name(ecfp, vec):
         mol_name = 'smiles'
     return mol_name
 
+
+
+def trainable_Model(model, isTrain, addL=0, half=False):
+    for layer in model.layers :
+        layer.trainable = True
+
+    if not isTrain :
+        freezeL = -(addL*2+1)
+        if half:
+            half_layers = int(1.0*(len(model.layers)-(addL*2+1))/2)
+            freezeL -= half_layers
+
+        for layer in model.layers[:freezeL] :
+            layer.trainable = isTrain
+
+def new_Model(model_tr, addL=0, n_nodes=256):
+    init = 'lecun_normal'
+    active_func = 'selu'
+    
+#     prot_vec = model_tr.layers[0].input
+#     input_cmpd = model_tr.layers[1].input
+    output = model_tr.layers[-2].output
+    
+    if addL >0:
+        for n_layer in range(addL):
+            output=Dense(n_nodes, activation=active_func, kernel_initializer=init, name='new_layer'+str(n_layer))(output)
+            # output=AlphaDropout(0.1)(output)
+            output=Dropout(0.5)(output)
+    output=Dense(2, activation='softmax', name='new_output')(output)
+
+#     return Model( input=[input_prot,input_cmpd], output=output)
+    return Model( input=model_tr.inputs, output=output)
+
+
 class task_val_call(Callback):
     def __init__(self, model, path_csv,  n_addL, epoch_train=None, path_w= None, full_learning='', batch_test= 1024):        
         # set the CSV list
@@ -305,25 +346,155 @@ class task_val_call(Callback):
         self.full_learning=full_learning
         self.n_addL=n_addL
 
-    def on_epoch_begin(self, epoch, logs=None, verbose=False):
-        self.time_start=time.time()
-
-        # if verbose is True:        
-        #     str_model_info = para_info+'\ttask_val_on_epoch_begin@{}\tbased on trainE[{}/{:3d}]\t'.format(self.full_learning+'task',self.epoch_train, args.TRAIN_epoch)
-        #     str_trainable_w= 'trainable weights:[{}]\t'.format(len(self.model_tr.trainable_weights))+'+'*len(self.model_tr.trainable_weights)
-        #     print str_model_info, str_trainable_w
-
     def on_epoch_end(self, epoch, logs=None):
-        time_tr = time.time()- self.time_start
         # 1.4. Evaluate task_te
         eval_N_csv(y_oneHot= task_val_y_oneHot, X_in= task_val_X_in, model=self.model, path_csv=self.path_csv.format(epoch=epoch),
                    epoch_train=self.epoch_train, epoch_transfer=epoch, batch_size=self.batch, 
-                   csv_list=self.CSV_task_te, DB='task', taskName='task_te', time_tr=time_tr)
+                   csv_list=self.CSV_task_te, DB='task', taskName='task_te' )
         
         # 2. Save Weights
-        if self.path is not None and epoch%50==0 :
-            # self.model_tr.save_weights(self.path_save.format(epoch=epoch), overwrite=True)
+        if self.path is not None :
             self.model_tr.save(self.path_save.format(epoch=epoch), overwrite=True)
+
+
+class tox_val_call(Callback):
+    def __init__(self, model, path_csv,  n_addL, epoch_train=None, path_w= None, batch_test= 1024):        
+        # set the CSV list
+        self.CSV_list =[]
+        for i in range(len( tox_test_in_list)):
+        	self.CSV_list.append( [])
+        self.CSV_test =[]
+        
+        # We set the model (non multi gpu) under an other name
+        self.model_tr = model
+        self.path_dir = path_csv
+        # set path for csv file
+        if epoch_train is not None:
+            self.path_dir = path_csv+'/tasks/'
+            self.path_dir_full = path_csv
+        else:
+        	self.path_dir = path_csv+'/val_direct/'
+        if not os.path.exists(self.path_dir):
+            os.makedirs(self.path_dir)     
+        
+        self.path_addL = '/add{n_addL}_'.format(n_addL=n_addL)
+        self.path_csv = self.path_dir_full+self.path_addL+'epoch{epoch}_'
+        
+        self.path_csv_task = self.path_dir +self.path_addL+'epoch{epoch}_'
+
+        self.batch = batch_test
+        self.n_addL=n_addL
+        self.path_w = path_w
+        
+        self.epoch_train=epoch_train
+        self.epoch_now =None
+    def on_train_begin(self,logs=None):
+        print('epoch_tr:{}\tis_add:{}   \r'.format( self.epoch_train, self.n_addL)),
+
+    def on_epoch_begin(self, epoch, logs=None):
+        self.epoch_now=epoch
+        idx_csv=0
+        eval_N_csv(y_oneHot=tox_test_y_oneHot, X_in=tox_test_X_in, model=self.model, path_csv=self.path_csv.format(epoch=epoch),
+                   epoch_transfer=epoch, epoch_train=self.epoch_train, batch_size=self.batch, 
+                   csv_list=self.CSV_test, DB='Tox21', taskName='test_all')
+
+    def on_train_end(self,logs=None):
+        epoch = self.epoch_now
+        eval_N_csv(y_oneHot=tox_test_y_oneHot, X_in=tox_test_X_in, model=self.model, path_csv=self.path_csv.format(epoch=epoch),
+                   epoch_transfer=epoch, epoch_train=self.epoch_train, batch_size=self.batch, 
+                   csv_list=self.CSV_test, DB='Tox21', taskName='test_all', is_force=True)
+
+
+class transfer_(Callback):
+    def __init__(self, model, path_w, path_csv, task , full_learning='',
+                 n_addL=0, lr=0.0005, n_epoch=10, batch_size=1024, comment='' ):        
+        
+        # set the CSV list
+        self.CSV__tr =[]
+        # We set the model (non multi gpu) under an other name
+        self.model_tr = model
+        with tf.device('/cpu:0'):
+            self.model_ = MODEL_dic[args.MODEL_str](dropout_value=0.5, 
+									num_filters = args.nb_filters, 
+									embed_dim=args.embed_dim,
+									kernel_size=args.kernel_size,
+                                    nb_cnn=args.nb_cnn,
+                                    ecfp = args.ecfp,
+                                    vec = args.vec)
+        # hyper parameters
+        self.n_addL = n_addL
+        self.lr = lr
+        self.n_epoch = n_epoch
+        self.batch_size = batch_size
+        # if task is 'tox':
+        #     self.lr = lr*0.5
+
+        # set path with task
+        self.path_w_ =  path_w
+        self.path_csv_ =  path_csv
+        
+        self.task = task
+        self.full_learning=full_learning
+        self.comment = comment
+
+    def on_epoch_begin(self, epoch, logs=None):
+        trainable_Model(model= self.model_tr, isTrain=True)
+        
+    def on_epoch_end(self, epoch_train, logs=None):
+        if (args.Tran_start_epoch <= epoch_train) and epoch_train<args.n_detail or epoch_train%5==0:
+            # 1.copy W-> 2.freeze W-> 3.cut & new layer -> 4.lr setting -> 5. evaluate D_test as raw -> 6. Transfer Learning
+            # 1.copy weights
+            if self.full_learning is 'FULL':
+                self.model_.set_weights( self.model_tr.get_weights())
+                trainable_Model(self.model_, isTrain=True)
+
+            elif self.full_learning is 'HALF':
+                self.model_.set_weights( self.model_tr.get_weights())
+                trainable_Model(self.model_, isTrain=False, addL=self.n_addL, half=True)
+
+            else:
+                # Direct.ver (Not Copy, but SHARE)
+                self.model_ = new_Model(model_tr=self.model_tr, addL=self.n_addL)
+                # 2.freeze & 3.cut&new
+                trainable_Model(self.model_, isTrain=False, addL=self.n_addL )
+
+
+            # 4. lr setting
+            with tf.device(GPU_device):
+                parallel_ = multi_gpu_model(self.model_, gpus=args.n_gpu)
+                parallel_.compile(loss='categorical_crossentropy', 
+                                       optimizer=Adam( lr= self.lr , decay=1e-4), 
+                                       metrics=['accuracy', _mcc])
+
+                path_ckpt = None
+                trans_info = '/Trans_add{addL}_{full}{comment}'.format( addL=self.n_addL, full=self.full_learning, comment=self.comment)
+                path_csv =  set_path(self.path_csv_+trans_info)
+                path_csv= path_csv+"/Trans_on_{epoch_tr}".format( epoch_tr=epoch_train)
+                path_train_history = path_csv+self.task+'_train.csv'
+                
+                
+                if args.sample_w:
+                    sample_w = tox_train_w
+                else:
+                    sample_w = None
+                
+                # 5. Train the transfer model
+                if self.task is 'tox':
+                    callback_list=[tox_val_call(
+                                            model=self.model_, n_addL=self.n_addL, epoch_train=epoch_train, 
+                                            path_w=path_ckpt, path_csv=path_csv, batch_test = 1024), 
+                                  EarlyStopping(monitor='val__mcc', patience = args.tox_patience, verbose=1, mode='max'),
+                                  ]
+
+                    history = parallel_.fit(x=tox_train_X_in, y=tox_train_y_oneHot, batch_size=self.batch_size, epochs=self.n_epoch,
+                                            sample_weight= sample_w, 
+                                             callbacks=callback_list, verbose=verbose,
+                                             validation_data= (tox_val_X_in, tox_val_y_oneHot)
+                                             )
+
+                history_csv(history, path_train_history)
+                del parallel_
+
 
 
 config = tf.ConfigProto()
@@ -373,6 +544,73 @@ task_val_X_in, task_val_y_oneHot = data_valid(
 
 
 
+tox_tasks= ['NR-AR', 'NR-AR-LBD', 'NR-AhR', 'NR-Aromatase', 'NR-ER',
+       'NR-ER-LBD', 'NR-PPAR-gamma', 'SR-ARE', 'SR-ATAD5', 
+        'SR-HSE','SR-MMP', 'SR-p53']
+
+tox_pair_train = pd.read_csv('../../data/pairs/Tox21_pair_train.csv')
+tox_pair_val = pd.read_csv('../../data/pairs/Tox21_pair_val.csv')
+tox_pair_test = pd.read_csv('../../data/pairs/Tox21_pair_test.csv')
+
+tox_task_list = []
+for taskName in tox_tasks:
+    df = pd.read_csv('../../data/pairs/Tox21_pair_test_{prot}.csv'.format(prot=taskName), index_col=0)
+    tox_task_list.append(df)
+
+tox_table_mol2vec = pd.read_csv('../../data/Tox21_table_smile2vec_avg.csv', index_col=0)
+tox_table_mol2ecfp= pd.read_csv('../../data/Tox21_table_smile2ecfp.csv', index_col=0)
+tox_table_prot    = pd.read_csv('../../data/Tox21_table_tf-idf_prot0[size300_sg1_window35_minCount2].csv', index_col=0)
+
+tox_table_mol2vec   = scaled_df( scaler= scaler_mol2vec, df= tox_table_mol2vec)
+tox_table_mol2ecfp  = scaled_df( scaler= scaler_mol2ecfp, df= tox_table_mol2ecfp)
+tox_table_prot     = scaled_df( scaler=scaler_prot, df= tox_table_prot)
+
+tox_table_aa = pd.read_csv('../../data/Tox21_table_AA700.csv', index_col=0)
+tox_table_smile= pd.read_csv('../../data/Tox21_table_smile100_smile.csv', index_col=0)
+
+tox_train_X_in, tox_train_y_oneHot, tox_train_w = data_valid(
+                                       pair_dataset=tox_pair_train,
+                                       table_prot0= tox_table_prot,
+                                       table_mol2vec= tox_table_mol2vec, 
+                                       table_mol2ecfp= tox_table_mol2ecfp,
+                                       table_aa=    tox_table_aa,
+                                       table_smile= tox_table_smile,
+                                        is_w=True
+                                        )
+
+tox_val_X_in, tox_val_y_oneHot,_ = data_valid(
+                                       pair_dataset=tox_pair_val,
+                                       table_prot0= tox_table_prot,
+                                       table_mol2vec= tox_table_mol2vec, 
+                                       table_mol2ecfp= tox_table_mol2ecfp,
+                                       table_aa=    tox_table_aa,
+                                       table_smile= tox_table_smile,
+                                        )
+
+tox_test_X_in, tox_test_y_oneHot,_ = data_valid(
+                                       pair_dataset=tox_pair_test,
+                                       table_prot0= tox_table_prot,
+                                       table_mol2vec= tox_table_mol2vec, 
+                                       table_mol2ecfp= tox_table_mol2ecfp,
+                                       table_aa=    tox_table_aa,
+                                       table_smile= tox_table_smile,
+                                        )
+
+tox_test_in_list = []
+for task_name, tox_test in zip(tox_tasks , tox_task_list):
+    test_X_in, test_y_oneHot,_ = data_valid(
+                                           pair_dataset=tox_test,
+                                           table_prot0= tox_table_prot,
+                                           table_mol2vec= tox_table_mol2vec, 
+                                           table_mol2ecfp= tox_table_mol2ecfp,
+                                           table_aa=    tox_table_aa,
+                                           table_smile= tox_table_smile,
+                                            )
+    
+    tox_test_in_list.append([task_name, test_X_in, test_y_oneHot])
+
+
+
 verbose = 0
 steps_task = int(len(task_pair_train)//(args.TRAIN_batch))+1
 if args.is_converge:
@@ -418,15 +656,12 @@ if args.RE_epoch >0:
     re_path = dir_model+'model_tr_epoch{}.h5'.format(args.RE_epoch)
     model = load_model(re_path)
     print('re-load the model!')
+ckpt_path = dir_model
 
 with tf.device(GPU_device):
     parallel_model = multi_gpu_model(model, gpus=args.n_gpu)
     sgd = Adam( lr = args.TRAIN_lr, decay=1e-6)
     parallel_model.compile(loss='categorical_crossentropy', optimizer=sgd, metrics=['accuracy', _mcc])
-
-    ckpt_path = dir_model
-
-        
     history = parallel_model.fit_generator(
                                  generator=train_generator(
                                                 batch_size= args.TRAIN_batch,
@@ -448,3 +683,4 @@ with tf.device(GPU_device):
                                   initial_epoch= args.RE_epoch,
                                   )
     history_csv(history, path_train)
+

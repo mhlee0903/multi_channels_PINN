@@ -1,4 +1,7 @@
-# Multi-channel_PINN
+# Multi-channel_PINN: investigating scalable and transferable neural networks for drug discovery
+
+### [Paper on Journal of Cheminformatics](https://doi.org/10.1186/s13321-019-0368-1)
+
 
 ### Some packages are required as followed:
 Python (version 2.7) was used.
